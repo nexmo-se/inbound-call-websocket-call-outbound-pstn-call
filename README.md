@@ -80,7 +80,7 @@ npm install
 
 Launch the application:<br>
 ```bash
-node outbound-pstn-with-websocket-app
+node inbound-call-websocket-call-outbound-pstn-call
 ```
 
 Default local (not public!) of this application server `port` is: 8000.
