@@ -4,7 +4,7 @@
 
 In this reference code:</br>
 - The application answers an incoming SIP or PSTN call, on the corresponding answer webhook that leg is attached to a named conference</br>
-- Some time after, it establishes a WebSocket leg to the middleware (aka connector) server that cnnects to the AI engine provider with NCCO to add to the same named conference,</br>
+- Some time after, it establishes a WebSocket leg to the middleware (aka connector) server that connects to the AI engine provider with NCCO to add to the same named conference,</br>
 - On the FIRST WebSocket event with type transfer (NOT subsequent ones), an outbound PSTN call is created with NCCO to add to the same named conference,
 - On the PSTN event with type transfer, the WebSocket leg is updated to listen only to the outbound leg (and not the first inbound SIP/PSTN call)
 
