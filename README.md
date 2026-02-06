@@ -1,0 +1,125 @@
+# Application using Vonage Voice API for an inbound SIP/PSTN call, a WebSocket call, and an outbound PSTN call
+
+## Call flow
+
+In this reference code:</br>
+- The application answers an incoming SIP or PSTN call, on the corresponding answer webhook that leg is attached to a named conference</br>
+- Some time after, it establishes a WebSocket leg to the middleware (aka connector) server that cnnects to the AI engine provider with NCCO to add to the same named conference,</br>
+- On the FIRST WebSocket event with type transfer (NOT subsequent ones), an outbound PSTN call is created with NCCO to add to the same named conference,
+- On the PSTN event with type transfer, the WebSocket leg is updated to listen only to the outbound leg (and not the first inbound SIP/PSTN call)
+
+## Set up
+
+### Set up the peer Connector (middleware) server - Host server public hostname and port
+
+First set up the peer Connector server to Deepgram STT from https://github.com/nexmo-se/deepgram-connector-native-ws-skip-initial-silence.
+
+Default local (not public!) of the Connector server `port` is: 6000.
+
+If you plan to test using a `Local deployment`, you may use ngrok (an Internet tunneling service) for both<br>
+this Voice API application<br>
+and the Connector application<br>
+with [multiple ngrok tunnels](https://ngrok.com/docs/agent/config/v2/#tunnel-configurations).
+
+To do that, [install ngrok](https://ngrok.com/downloads).<br>
+Log in or sign up with [ngrok](https://ngrok.com/),<br>
+from the ngrok web UI menu, follow the **Setup and Installation** guide.
+
+Set up two tunnels,<br>
+one to forward to the local port 6000 (as the Connector application will be listening on port 6000),<br>
+the other one to the local port 8000 for this Voice API application,<br>
+see this [sample yaml configuration file](https://ngrok.com/docs/agent/config/v2/#define-two-tunnels-named-httpbin-and-demo) (see paragraph titled "Define two tunnels named ‘httpbin’ and ‘demo’"), but it needs port 6000 and 8000 as actual values,<br>
+depending if you have a paid ngrok account or not, you may or may not be able to set (static) domain names.
+
+Start ngrok to start both tunnels that forward to local ports 6000 and 8000, e.g.<br>
+`ngrok start httpbin demo` _(per the ngrok web page example)_,
+
+please take note of the ngrok Enpoint URL that forwards to local port 6000 as it will be needed here for this Voice API application environment variable as **`PROCESSOR_SERVER`** in one of the next sections, that URL looks like:<br>
+`xxxxxxxx.ngrok.xxx` (for ngrok),<br>
+or `myserver.mycompany.com:32000` (public host name and port of your Connector application server)<br>
+no `port` is necessary with ngrok as public host name,<br>
+that host name to specify must not have a leading protocol text such as `https://`, `wss://`, nor trailing `/`.
+
+### Set up your Vonage Voice API application credentials and phone number
+
+[Log in to your](https://dashboard.nexmo.com/sign-in) or [sign up for a](https://ui.idp.vonage.com/ui/auth/registration) Vonage APIs account.
+
+Go to [Your applications](https://dashboard.nexmo.com/applications), access an existing application or [+ Create a new application](https://dashboard.nexmo.com/applications/new).
+
+Under Capabilities section (click on [Edit] if you do not see this section):
+
+Enable Voice
+- Under Answer URL, leave HTTP GET, and enter https://\<host\>:\<port\>/answer (replace \<host\> and \<port\> with the public host name and if necessary public port of the server where this sample application is running)</br>
+- Under Event URL, **select** HTTP POST, and enter https://\<host\>:\<port\>/event (replace \<host\> and \<port\> with the public host name and if necessary public port of the server where this sample application is running)</br>
+Note: If you are using ngrok for this sample application, the answer URL and event URL look like:</br>
+https://yyyyyyyy.ngrok.xxx/answer</br>
+https://yyyyyyyy.ngrok.xxx/event</br> 	
+- Click on [Generate public and private key] if you did not yet create or want new ones, save the private key file in this application folder as .private.key (leading dot in the file name).</br>
+**IMPORTANT**: Do not forget to click on [Save changes] at the bottom of the screen if you have created a new key set.</br>
+- Link a phone number to this application if none has been linked to the application.
+
+Please take note of your **application ID** and the **linked phone number** (as they are needed in the very next section).
+
+For the next steps, you will need:</br>
+- Your [Vonage API key](https://dashboard.nexmo.com/settings) (as **`API_KEY`**)</br>
+- Your [Vonage API secret](https://dashboard.nexmo.com/settings), not signature secret, (as **`API_SECRET`**)</br>
+- Your `application ID` (as **`APP_ID`**),</br>
+- The **`phone number linked`** to your application (as **`SERVICE_PHONE_NUMBER`**), that's the phone number that will be seen by callees.</br>
+
+### Local setup
+
+Copy or rename .env-example to .env<br>
+Update parameters in .env file<br>
+
+Have Node.js installed on your system, this application has been tested with Node.js version 22.16<br>
+
+Install required node modules with the command:<br>
+ ```bash
+npm install
+```
+
+Launch the application:<br>
+```bash
+node outbound-pstn-with-websocket-app
+```
+
+Default local (not public!) of this application server `port` is: 8000.
+
+
+### Optional - Notify middleware application when outbound PSTN call has been answered
+
+Your middleware (aka connector) server (at the other end the WebSocket) application may want to be notified at the exact moment the corresponding PSTN call is answered by the callee,</br>
+this is achieved by sending a DTMF over the WebSocket, the middleware receives a text type message on the WebSocket which text payload looks like this (as seen on the terminal where the middleware code runs):</br>
+
+_>>> Websocket text message: {"event":"websocket:dtmf","digit":"8","duration":130}_
+
+That notification is sent by the Voice API application</br>
+_outbound-pstn-with-websocket-app.js_ at line number 264.
+
+### Optional - Audio recording of PSTN calls
+
+If you want to record some designated or all PSTN calls, you must:</br>
+
+Access your account on dashboard.nexmo.com,<br>
+edit the application associated to this server code,<br>
+enable "RTC (In-app voice & messaging)", and set the corresponding webhook URL, then [Save changes].<br>
+
+In this sample application, the webhook URL relative path is:<br>
+HTTP POST /rtc for the RTC Event URL<br>
+
+Audio recording files will be stored in the ./post-call-data folder.</br>
+
+Important: Make sure there is enough disk storage as you may need to manually delete the created recording files.</br>
+
+### Try the application
+
+Call in to the Vonage application number via SIP or PSTN.</br>
+
+After a few seconds, the callee (number set in .env file) will be called, upon answering:</br>
+- The original incoming SIP/PSTN caller and the outbound calleee can speak to and hear each other,
+- The WebSocket leg (AI engine) hears only the audio from the PSTN callee.
+
+
+
+
+
